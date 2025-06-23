@@ -55,7 +55,7 @@ async function requireAdmin(req, res, next) {
 
 // Middleware
 app.use(cors({
-    origin: ['https://mertdeveci94.github.io', 'http://localhost:3000', 'http://localhost:8000'],
+    origin: ['https://mertdeveci94.github.io', 'http://localhost:3000', 'http://localhost:8000', 'http://localhost:8080'],
     credentials: true
 })); // CORS configuration for production
 app.use(bodyParser.json()); // JSON istek gövdelerini ayrıştırmak için
@@ -767,10 +767,24 @@ app.post('/api/url-metadata', async (req, res) => {
         }
         
         // Fetch webpage content
+        // Special handling for Twitter/X URLs
+        const isTwitter = validUrl.hostname.includes('twitter.com') || validUrl.hostname.includes('x.com');
+        
         const response = await axios.get(url, {
-            timeout: 10000,
+            timeout: 15000,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                ...(isTwitter && {
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none'
+                })
             }
         });
         
@@ -797,7 +811,11 @@ app.post('/api/url-metadata', async (req, res) => {
                               
         metadata.image = $('meta[property="og:image"]').attr('content') ||
                         $('meta[name="twitter:image"]').attr('content') ||
-                        $('meta[name="twitter:image:src"]').attr('content') || null;
+                        $('meta[name="twitter:image:src"]').attr('content') ||
+                        $('meta[property="twitter:image"]').attr('content') ||
+                        $('meta[property="twitter:image:src"]').attr('content') ||
+                        $('img[data-testid="tweetPhoto"]').attr('src') ||
+                        $('img[alt*="Image"]').first().attr('src') || null;
         
         // Make image URL absolute if relative
         if (metadata.image && !metadata.image.startsWith('http')) {
